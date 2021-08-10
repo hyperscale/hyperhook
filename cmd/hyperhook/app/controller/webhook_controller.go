@@ -6,14 +6,21 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 
 	"github.com/euskadi31/go-eventemitter"
 	"github.com/euskadi31/go-server"
 	"github.com/euskadi31/go-server/response"
+	"github.com/gorilla/mux"
 	"github.com/hyperscale/hyperhook/pkg/webhook"
 	"github.com/rs/zerolog/hlog"
 )
+
+var errProviderNotFound = errors.New("provider not found")
+
+const uuidRegxp = `\b[0-9a-f]{8}\b-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-\b[0-9a-f]{12}\b`
 
 var _ server.Controller = (*webhookController)(nil)
 
@@ -34,25 +41,40 @@ func NewWebhookController(
 
 // Mount endpoints.
 func (c webhookController) Mount(r *server.Router) {
-	r.HandleFunc("/v1/webhook/{id}/{provider}", c.postWebhookHandler).Methods(http.MethodPost)
+	r.HandleFunc("/v1/webhook/{id:"+uuidRegxp+"}/{provider}", c.postWebhookHandler).Methods(http.MethodPost)
 }
 
 // POST /v1/webhook/{id}/{provider} .
 func (c webhookController) postWebhookHandler(w http.ResponseWriter, r *http.Request) {
-	webhook := &webhook.Event{}
-
 	log := hlog.FromRequest(r)
 
-	var inputMap map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&inputMap); err != nil {
-		log.Error().Err(err).Msg("Parsing json body failed")
+	vars := mux.Vars(r)
+
+	provider := webhook.SourceFromString(vars["provider"])
+	if provider == webhook.SourceTypeUnknwon {
+		log.Error().Err(errProviderNotFound).Str("provider", vars["provider"]).Msg("")
+
+		response.FailureFromError(w, http.StatusNotFound, errProviderNotFound)
+
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Error().Err(err).Str("provider", vars["provider"]).Msg("read body failed")
 
 		response.FailureFromError(w, http.StatusBadRequest, err)
 
 		return
 	}
 
+	webhook := &webhook.Event{
+		ID:      vars["id"],
+		Source:  provider,
+		Payload: json.RawMessage(body),
+	}
+
 	c.emitter.Dispatch("webkook.receive", webhook)
 
-	response.Encode(w, r, http.StatusCreated, map[string]bool{"status": true})
+	response.Encode(w, r, http.StatusOK, map[string]bool{"status": true})
 }

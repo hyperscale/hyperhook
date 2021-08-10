@@ -4,6 +4,8 @@
 
 package bitbucket
 
-// Actor struct.
-type Actor struct {
+type Webhook struct {
+	Actor      *Owner       `json:"actor"`
+	Repository *Repository  `json:"repository"`
+	Push       *PushPayload `json:"push"`
 }
