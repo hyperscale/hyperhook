@@ -45,6 +45,19 @@ linters-settings:
   goimports:
     local-prefixes: go.opentelemetry.io
 
+  tagliatelle:
+    # check the struck tag name case
+    case:
+      # use the struct field name to check the name of the struct tag
+      use-field-name: false
+      rules:
+        # any struct tag type can be used.
+        # support string case: `camel`, `pascal`, `kebab`, `snake`, `goCamel`, `goPascal`, `goKebab`, `goSnake`, `upper`, `lower`
+        json: snake
+        yaml: snake
+        avro: snake
+        mapstructure: snake
+
 
 linters:
   disable-all: true

@@ -5,7 +5,6 @@
 package bitbucket
 
 // Repository struct.
-//nolint:tagliatelle
 type Repository struct {
 	Type      string   `json:"type"`
 	Links     *Links   `json:"links"`
